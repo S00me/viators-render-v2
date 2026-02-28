@@ -13,7 +13,7 @@ export default function Home() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.8 }}
-      className="bg-black min-h-screen font-sans selection:bg-purple-500 selection:text-white relative"
+      className="min-h-screen font-sans selection:bg-purple-500 selection:text-white relative"
     >
       <Header />
       <main>
