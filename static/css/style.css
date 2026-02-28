@@ -1,0 +1,49 @@
+/* Custom Styles */
+.glass-panel {
+    background-color: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.text-gradient {
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    background-image: linear-gradient(to right, #ffffff, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.5));
+}
+
+/* Leaflet Dark Mode Override */
+.leaflet-container {
+    background: #0A0A0A;
+    font-family: 'Inter', sans-serif;
+}
+
+.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+    background: #18181b;
+    color: white;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.leaflet-popup-content {
+    margin: 10px;
+    font-size: 12px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #000; 
+}
+ 
+::-webkit-scrollbar-thumb {
+    background: #333; 
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555; 
+}
