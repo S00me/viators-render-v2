@@ -25,6 +25,13 @@ interface ItineraryDay {
   color: string;
 }
 
+interface MapLayer {
+  id: number;
+  name: string;
+  color: string;
+  files: { id: number; file_url: string }[];
+}
+
 interface GearCategory {
   id: number;
   name: string;
@@ -61,7 +68,7 @@ function GearItem({ item }: GearItemProps) {
   );
 }
 
-function RouteKey({ days }: { days: ItineraryDay[] }) {
+function RouteKey({ layers }: { layers: MapLayer[] }) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -70,10 +77,10 @@ function RouteKey({ days }: { days: ItineraryDay[] }) {
       <div className="hidden md:block absolute bottom-4 right-4 bg-black/40 backdrop-blur-xl p-4 rounded-xl border border-white/10 max-w-xs shadow-2xl">
         <h4 className="text-xs font-bold text-zinc-200 uppercase tracking-wider mb-3 border-b border-white/10 pb-2">Route Key</h4>
         <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
-          {days.map((day) => (
-            <div key={day.id} className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: day.color || '#000000' }} />
-              <span className="text-xs text-zinc-300 font-medium truncate">Day {day.day_number}: {day.title}</span>
+          {layers.map((layer) => (
+            <div key={layer.id} className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: layer.color || '#000000' }} />
+              <span className="text-xs text-zinc-300 font-medium truncate">{layer.name}</span>
             </div>
           ))}
         </div>
@@ -115,10 +122,10 @@ function RouteKey({ days }: { days: ItineraryDay[] }) {
                 </button>
               </div>
               <div className="space-y-3 max-h-[50vh] overflow-y-auto">
-                {days.map((day) => (
-                  <div key={day.id} className="flex items-center gap-3">
-                    <div className="w-4 h-4 rounded-full border border-white/20 shadow-sm shrink-0" style={{ backgroundColor: day.color || '#000000' }} />
-                    <span className="text-sm text-zinc-300 font-medium">Day {day.day_number}: {day.title}</span>
+                {layers.map((layer) => (
+                  <div key={layer.id} className="flex items-center gap-3">
+                    <div className="w-4 h-4 rounded-full border border-white/20 shadow-sm shrink-0" style={{ backgroundColor: layer.color || '#000000' }} />
+                    <span className="text-sm text-zinc-300 font-medium">{layer.name}</span>
                   </div>
                 ))}
               </div>
@@ -133,6 +140,7 @@ function RouteKey({ days }: { days: ItineraryDay[] }) {
 export default function Itinerary() {
   const [days, setDays] = useState<ItineraryDay[]>([]);
   const [gear, setGear] = useState<GearCategory[]>([]);
+  const [mapLayers, setMapLayers] = useState<MapLayer[]>([]);
   const [routes, setRoutes] = useState<{ coordinates: [number, number][]; color: string }[]>([]);
   const [center, setCenter] = useState<[number, number]>([46.0000, 7.7300]);
   const [upcomingTitle, setUpcomingTitle] = useState<string>('');
@@ -152,27 +160,31 @@ export default function Itinerary() {
         const gearData = await gearRes.json();
         setGear(gearData);
 
-        // Parse GPX files
-        const parsedRoutes = await Promise.all(
-          daysData.map(async (day: ItineraryDay) => {
-            if (day.gpx_url) {
-              try {
-                const coordinates = await parseTrack(day.gpx_url);
-                return { coordinates, color: day.color || '#ffffff' };
-              } catch (e) {
-                console.error(`Failed to parse GPX for day ${day.day_number}`, e);
-                return null;
+        // Fetch Map Layers
+        const layersRes = await fetch('/api/itinerary/map-layers');
+        const layersData = await layersRes.json();
+        setMapLayers(layersData);
+
+        // Parse GPX files from layers
+        const allRoutes: { coordinates: [number, number][]; color: string }[] = [];
+        
+        for (const layer of layersData) {
+          for (const file of layer.files) {
+            try {
+              const coordinates = await parseTrack(file.file_url);
+              if (coordinates.length > 0) {
+                allRoutes.push({ coordinates, color: layer.color });
               }
+            } catch (e) {
+              console.error(`Failed to parse GPX for layer ${layer.name}`, e);
             }
-            return null;
-          })
-        );
+          }
+        }
         
-        const validRoutes = parsedRoutes.filter((r): r is { coordinates: [number, number][]; color: string } => r !== null);
-        setRoutes(validRoutes);
+        setRoutes(allRoutes);
         
-        if (validRoutes.length > 0 && validRoutes[0].coordinates.length > 0) {
-          setCenter(validRoutes[0].coordinates[0]);
+        if (allRoutes.length > 0 && allRoutes[0].coordinates.length > 0) {
+          setCenter(allRoutes[0].coordinates[0]);
         }
       } catch (e) {
         console.error('Failed to fetch itinerary data', e);
@@ -210,7 +222,7 @@ export default function Itinerary() {
               fitBounds={true}
               basemap="outdoors"
             />
-            <RouteKey days={days} />
+            <RouteKey layers={mapLayers} />
           </div>
         </div>
 

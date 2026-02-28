@@ -223,6 +223,51 @@ app.delete('/api/itinerary/:id', requireAdmin, (req, res) => {
   res.json({ success: true });
 });
 
+// Itinerary Map Layers
+app.get('/api/itinerary/map-layers', (req, res) => {
+  const groups = db.prepare('SELECT * FROM itinerary_map_groups').all();
+  const files = db.prepare('SELECT * FROM itinerary_map_files').all();
+  
+  const layers = groups.map((group: any) => ({
+    ...group,
+    files: files.filter((file: any) => file.group_id === group.id)
+  }));
+  
+  res.json(layers);
+});
+
+app.post('/api/itinerary/map-groups', requireAdmin, (req, res) => {
+  const { name, color } = req.body;
+  const info = db.prepare('INSERT INTO itinerary_map_groups (name, color) VALUES (?, ?)').run(name, color);
+  res.json({ success: true, id: info.lastInsertRowid });
+});
+
+app.put('/api/itinerary/map-groups/:id', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const { name, color } = req.body;
+  db.prepare('UPDATE itinerary_map_groups SET name = ?, color = ? WHERE id = ?').run(name, color, id);
+  res.json({ success: true });
+});
+
+app.delete('/api/itinerary/map-groups/:id', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  db.prepare('DELETE FROM itinerary_map_files WHERE group_id = ?').run(id);
+  db.prepare('DELETE FROM itinerary_map_groups WHERE id = ?').run(id);
+  res.json({ success: true });
+});
+
+app.post('/api/itinerary/map-files', requireAdmin, (req, res) => {
+  const { group_id, file_url } = req.body;
+  const info = db.prepare('INSERT INTO itinerary_map_files (group_id, file_url) VALUES (?, ?)').run(group_id, file_url);
+  res.json({ success: true, id: info.lastInsertRowid });
+});
+
+app.delete('/api/itinerary/map-files/:id', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  db.prepare('DELETE FROM itinerary_map_files WHERE id = ?').run(id);
+  res.json({ success: true });
+});
+
 // Gear
 app.get('/api/gear', (req, res) => {
   const categories = db.prepare('SELECT * FROM gear_categories').all();

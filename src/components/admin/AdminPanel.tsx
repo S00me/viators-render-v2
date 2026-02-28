@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { useAdmin } from '@/context/AdminContext';
+import { useState, useEffect } from 'react';
 import { X, Plus, Trash, Save } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -8,10 +7,11 @@ interface AdminPanelProps {
 }
 
 export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<'upcoming' | 'past' | 'itinerary' | 'gear' | 'settings'>('upcoming');
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'past' | 'itinerary' | 'map' | 'gear' | 'settings'>('upcoming');
   const [upcomingData, setUpcomingData] = useState<any>(null);
   const [pastTrips, setPastTrips] = useState<any[]>([]);
   const [itineraryDays, setItineraryDays] = useState<any[]>([]);
+  const [mapLayers, setMapLayers] = useState<any[]>([]);
   const [gearCategories, setGearCategories] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({});
   const [loading, setLoading] = useState(true);
@@ -34,6 +34,10 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
       const itineraryRes = await fetch('/api/itinerary');
       const itinerary = await itineraryRes.json();
       setItineraryDays(itinerary);
+
+      const mapLayersRes = await fetch('/api/itinerary/map-layers');
+      const layers = await mapLayersRes.json();
+      setMapLayers(layers);
 
       const gearRes = await fetch('/api/gear');
       const gear = await gearRes.json();
@@ -246,6 +250,85 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
     }]);
   };
 
+  // Map Layer Handlers
+  const handleAddMapGroup = async () => {
+    const name = prompt('Layer Name (Legend Label):');
+    if (!name) return;
+    try {
+      const res = await fetch('/api/itinerary/map-groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, color: '#ffffff' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMapLayers([...mapLayers, { id: data.id, name, color: '#ffffff', files: [] }]);
+      }
+    } catch (e) {
+      console.error('Failed to add map group', e);
+    }
+  };
+
+  const handleUpdateMapGroup = async (id: number, field: string, value: string) => {
+    const layer = mapLayers.find(l => l.id === id);
+    if (!layer) return;
+    
+    const updatedLayer = { ...layer, [field]: value };
+    setMapLayers(mapLayers.map(l => l.id === id ? updatedLayer : l)); // Optimistic update
+
+    try {
+      await fetch(`/api/itinerary/map-groups/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: updatedLayer.name, color: updatedLayer.color }),
+      });
+    } catch (e) {
+      console.error('Failed to update map group', e);
+    }
+  };
+
+  const handleDeleteMapGroup = async (id: number) => {
+    if (!confirm('Delete this layer group and all its tracks?')) return;
+    try {
+      await fetch(`/api/itinerary/map-groups/${id}`, { method: 'DELETE' });
+      setMapLayers(mapLayers.filter(l => l.id !== id));
+    } catch (e) {
+      console.error('Failed to delete map group', e);
+    }
+  };
+
+  const handleAddMapFile = async (groupId: number, file: File) => {
+    const url = await handleFileUpload(file);
+    if (!url) return;
+
+    try {
+      const res = await fetch('/api/itinerary/map-files', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group_id: groupId, file_url: url }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMapLayers(mapLayers.map(l => 
+          l.id === groupId ? { ...l, files: [...l.files, { id: data.id, group_id: groupId, file_url: url }] } : l
+        ));
+      }
+    } catch (e) {
+      console.error('Failed to add map file', e);
+    }
+  };
+
+  const handleDeleteMapFile = async (groupId: number, fileId: number) => {
+    try {
+      await fetch(`/api/itinerary/map-files/${fileId}`, { method: 'DELETE' });
+      setMapLayers(mapLayers.map(l => 
+        l.id === groupId ? { ...l, files: l.files.filter((f: any) => f.id !== fileId) } : l
+      ));
+    } catch (e) {
+      console.error('Failed to delete map file', e);
+    }
+  };
+
   // Gear Handlers
   const handleAddCategory = async () => {
     const name = prompt('Category Name:');
@@ -319,7 +402,7 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
         </div>
 
         <div className="flex border-b border-white/10 overflow-x-auto">
-          {['upcoming', 'past', 'itinerary', 'gear', 'settings'].map((tab) => (
+          {['upcoming', 'past', 'itinerary', 'map', 'gear', 'settings'].map((tab) => (
             <button
               key={tab}
               className={`px-6 py-3 text-sm font-medium capitalize whitespace-nowrap ${activeTab === tab ? 'text-purple-500 border-b-2 border-purple-500' : 'text-zinc-400 hover:text-white'}`}
@@ -639,6 +722,68 @@ export function AdminPanel({ isOpen, onClose }: AdminPanelProps) {
                   </div>
                 </div>
               ))}
+            </div>
+          ) : activeTab === 'map' ? (
+            <div className="space-y-8">
+              <button onClick={handleAddMapGroup} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors">
+                <Plus size={16} /> Add Map Layer
+              </button>
+              
+              <div className="space-y-6">
+                {mapLayers.map((layer) => (
+                  <div key={layer.id} className="bg-black/30 border border-white/5 p-6 rounded-xl space-y-4">
+                    <div className="flex justify-between items-center gap-4">
+                      <div className="flex-1 flex gap-4">
+                        <input 
+                          type="text" 
+                          value={layer.name} 
+                          onChange={(e) => handleUpdateMapGroup(layer.id, 'name', e.target.value)} 
+                          className="bg-black/50 border border-white/10 rounded px-3 py-2 text-white text-sm flex-1" 
+                          placeholder="Layer Name"
+                        />
+                        <input 
+                          type="color" 
+                          value={layer.color} 
+                          onChange={(e) => handleUpdateMapGroup(layer.id, 'color', e.target.value)} 
+                          className="bg-black/50 border border-white/10 rounded h-10 w-16" 
+                          title="Layer Color" 
+                        />
+                      </div>
+                      <button onClick={() => handleDeleteMapGroup(layer.id)} className="text-red-500 hover:text-red-400"><Trash size={16} /></button>
+                    </div>
+                    
+                    <div className="bg-black/20 rounded-lg p-4">
+                      <h4 className="text-xs text-zinc-400 uppercase tracking-wider mb-3">GPX Tracks</h4>
+                      <ul className="space-y-2 mb-4">
+                        {layer.files.map((file: any) => (
+                          <li key={file.id} className="flex justify-between items-center bg-black/50 px-3 py-2 rounded text-sm text-zinc-300">
+                            <span className="truncate max-w-[200px]">{file.file_url.split('/').pop()}</span>
+                            <div className="flex items-center gap-2">
+                                <a href={file.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 text-xs">View</a>
+                                <button onClick={() => handleDeleteMapFile(layer.id, file.id)} className="text-zinc-500 hover:text-red-500"><X size={14} /></button>
+                            </div>
+                          </li>
+                        ))}
+                        {layer.files.length === 0 && <li className="text-zinc-500 text-xs italic">No tracks uploaded</li>}
+                      </ul>
+                      
+                      <div className="flex items-center gap-2">
+                         <input
+                            type="file"
+                            accept=".gpx"
+                            onChange={(e) => {
+                                if (e.target.files?.[0]) {
+                                    handleAddMapFile(layer.id, e.target.files[0]);
+                                    e.target.value = ''; // Reset input
+                                }
+                            }}
+                            className="text-xs text-zinc-400"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : activeTab === 'settings' ? (
             <div className="space-y-8">

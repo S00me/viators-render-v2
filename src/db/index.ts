@@ -79,6 +79,19 @@ export function initDb() {
       key TEXT PRIMARY KEY,
       value TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS itinerary_map_groups (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT,
+      color TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS itinerary_map_files (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      group_id INTEGER,
+      file_url TEXT,
+      FOREIGN KEY(group_id) REFERENCES itinerary_map_groups(id) ON DELETE CASCADE
+    );
   `);
 
   try {

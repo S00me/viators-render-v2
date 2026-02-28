@@ -37,9 +37,9 @@ export async function parseTrack(input: File | string): Promise<[number, number]
   }
 
   // Extract the first LineString or MultiLineString
-  const feature = geojson.features.find(f => f.geometry.type === 'LineString' || f.geometry.type === 'MultiLineString');
+  const feature = geojson.features.find((f: any) => f.geometry && (f.geometry.type === 'LineString' || f.geometry.type === 'MultiLineString'));
   
-  if (feature) {
+  if (feature && feature.geometry) {
     if (feature.geometry.type === 'LineString') {
       // GeoJSON is [lng, lat], Leaflet needs [lat, lng]
       return feature.geometry.coordinates.map((coord: number[]) => [coord[1], coord[0]]);
